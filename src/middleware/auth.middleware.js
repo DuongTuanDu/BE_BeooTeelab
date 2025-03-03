@@ -10,7 +10,9 @@ const handleAuthError = (res, status, message) =>
 
 export const authMiddlewareAdmin = async (req, res, next) => {
     try {
-        const token = req.header("X-Admin-Header")?.split(" ")[1];
+        const token = req.header("X-Admin-Header");
+        console.log("token", token);
+        
         if (!token) {
             return handleAuthError(res, 401, "Quyền truy cập bị từ chối");
         }
