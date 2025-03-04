@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Xác nhận email của bạn</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 0;
+        }
+
+        table {
+            max-width: 600px;
+            margin: 20px auto;
+            background-color: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .header {
+            background-color: #dbdec1;
+            border-radius: 8px 8px 0 0;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header img {
+            max-width: 150px;
+            height: auto;
+        }
+
+        .content {
+            padding: 40px 30px;
+        }
+
+        .verification-code {
+            background-color: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 4px;
+            padding: 15px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .verification-code span {
+            font-size: 24px;
+            font-weight: bold;
+            letter-spacing: 5px;
+            color: #dbdec1;
+        }
+
+        .footer {
+            background-color: #f8f9fa;
+            border-radius: 0 0 8px 8px;
+            padding: 20px 30px;
+            text-align: center;
+            font-size: 14px;
+            color: #6c757d;
+        }
+    </style>
+</head>
+
+<body>
+    <table border="0" cellpadding="0" cellspacing="0" width="100%">
+        <tr>
+            <td class="header">
+                <img src="https://bizweb.dktcdn.net/100/415/697/themes/902041/assets/logo.png?1710226595388"
+                    alt="Teelab Logo">
+            </td>
+        </tr>
+        <tr>
+            <td class="content">
+                <p style="margin-bottom: 20px; font-size: 16px;">Xin chào 👋 {{name}} !</p>
+                <p style="margin-bottom: 20px; font-size: 16px;">Cảm ơn bạn đã đăng ký tài khoản với Teelab. Để hoàn tất
+                    quá trình đăng ký, vui lòng sử dụng mã xác nhận dưới đây ⬇️</p>
+                <div class="verification-code">
+                    <span style="color: #14134f;">{{verificationCode}}</span>
+                </div>
+                <p style="margin-bottom: 20px; font-size: 16px;">Mã xác nhận sẽ hết hạn sau 5 phút. Nếu bạn không yêu
+                    cầu xác nhận này, vui lòng bỏ qua email này.</p>
+                <p style="margin-bottom: 20px; font-size: 16px;">Trân trọng !<br>Đội ngũ hỗ trợ của chúng tôi</p>
+            </td>
+        </tr>
+        <tr>
+            <td class="footer">
+                <p style="margin: 0;">Email này được gửi tự động, vui lòng không trả lời.</p>
+                <p style="margin: 10px 0 0;">© 2024 Teelab.</p>
+            </td>
+        </tr>
+    </table>
+</body>
+
+</html>
