@@ -10,7 +10,7 @@ const handleAuthError = (res, status, message) =>
 
 export const authMiddlewareAdmin = async (req, res, next) => {
     try {
-        const token = req.header("X-Admin-Header");
+        const token = req.header("X-Admin-Header")?.split(" ")[1];
         console.log("token", token);
         
         if (!token) {

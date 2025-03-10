@@ -1,13 +1,21 @@
 import express from 'express';
 import { connectDB } from './configs/connection.js';
 import adminRoutes from './routes/admin.js'
+import cors from "cors";
 
 const app = express();
 const port = process.env.PORT || 8080;
 
+app.use(
+    cors({
+        origin: process.env.FRONT_END_URL,
+        credentials: true,
+    })
+);
+
 app.use(express.json());
 
-app.use('/admin/api/v1', adminRoutes);
+app.use('/api/v1/admin', adminRoutes);
 
 app.listen(port, async () => {
     await connectDB()
