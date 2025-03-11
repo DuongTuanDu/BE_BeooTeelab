@@ -1,7 +1,7 @@
 import Order from "../models/order.model.js";
 import Product from "../models/product.model.js";
 import User from "../models/user.model.js";
-import moment from "moment";
+import moment from "moment-timezone";
 
 export const statisticalDashboard = async (req, res) => {
   try {
