@@ -1,16 +1,23 @@
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
 
-export const AdminSchema = new mongoose.Schema(
+export const UserSchema = new mongoose.Schema(
     {
-        username: {
+        googleId: {
+            type: String,
+        },
+        name: {
+            type: String,
+            required: true,
+        },
+        email: {
             type: String,
             required: true,
             unique: true,
         },
         password: {
             type: String,
-            required: true,
+            default: "",
         },
         avatar: {
             url: {
@@ -22,16 +29,24 @@ export const AdminSchema = new mongoose.Schema(
                 default: "",
             },
         },
-        role: {
-            type: String,
-            default: "ADMIN",
-            enum: ["ADMIN", "SUPPORT"],
+        isActive: {
+            type: Boolean,
+            default: false,
+        },
+        wishlist: {
+            type: [
+                {
+                    type: mongoose.Schema.Types.ObjectId,
+                    ref: "Product",
+                },
+            ],
+            default: [],
         },
     },
     { timestamps: true }
 );
 
-AdminSchema.pre("save", function (next) {
+UserSchema.pre("save", function (next) {
     if (!this.isModified("password")) return next();
     bcrypt.hash(this.password, 10, (err, hash) => {
         if (err) return next(err);
@@ -40,19 +55,6 @@ AdminSchema.pre("save", function (next) {
     });
 });
 
-// ⚠️ Quan trọng: Kiểm tra model có tồn tại trước khi tạo mới
-const Admin = mongoose.models.Admin || mongoose.model("Admin", AdminSchema);
+const User = mongoose.model("User", UserSchema);
 
-export const initializeAdmin = async () => {
-    const adminCount = await Admin.countDocuments();
-    if (adminCount === 0) {
-        const defaultAdmin = new Admin({
-            username: "admin",
-            password: "admin123",
-            role: "ADMIN",
-        });
-        await defaultAdmin.save();
-    }
-};
-
-export default Admin;
+export default User;
