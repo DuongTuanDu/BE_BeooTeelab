@@ -15,7 +15,10 @@ import {
 } from "../validates/auth.validate.js";
 import {
   getProductHome,
+  getFilterOptions,
+  getProductPromotion,
 } from "../controllers/product.controller.js";
+import { getAllCategory } from "../controllers/category.controller.js";
 import { authMiddlewareCustomer } from "../middleware/auth.middleware.js";
 
 const router = express.Router();
@@ -27,9 +30,13 @@ router.post(
   validateMiddleWare,
   registerCustomer
 );
+
+router.get("/products-home", getProductHome);
+router.get("/filter-options", getFilterOptions);
+router.get("/products-by-promotion", getProductPromotion);
+
 router.post("/verify-otp", verifyOtp);
 router.post("/send-otp", sendOtp);
-router.get("/products-home", getProductHome);
 router.post(
   "/reset-password",
   resetPasswordValidate,
@@ -42,5 +49,6 @@ router.put(
   validateMiddleWare,
 );
 router.get("/account", authMiddlewareCustomer, getAccountCustomer);
+router.get("/categories", getAllCategory);
 
 export default router;

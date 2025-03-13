@@ -1,6 +1,8 @@
 import Product from "../models/product.model.js";
 import slugify from "slugify";
 import Promotion from "../models/promotion.model.js";
+import Category from "../models/category.model.js";
+import Review from "../models/review.model.js";
 
 //Promotion calculate
 const getActivePromotionsForProduct = async (productId, categoryId) => {
@@ -305,6 +307,280 @@ export const getAllProduct = async (req, res) => {
             success: false,
             message: "Internal Server Error",
             data: [],
+            error: error.message,
+        });
+    }
+};
+
+export const getFilterOptions = async (req, res) => {
+    try {
+        const [priceData, categories, colors] = await Promise.all([
+            Product.aggregate([
+                {
+                    $group: {
+                        _id: null,
+                        minPrice: { $min: "$price" },
+                        maxPrice: { $max: "$price" },
+                    },
+                },
+            ]),
+
+            Category.aggregate([
+                {
+                    $lookup: {
+                        from: "products",
+                        localField: "_id",
+                        foreignField: "category",
+                        as: "products",
+                    },
+                },
+                {
+                    $project: {
+                        name: 1,
+                        slug: 1,
+                        productCount: { $size: "$products" },
+                    },
+                },
+            ]),
+
+            Product.aggregate([
+                { $unwind: "$variants" },
+                {
+                    $group: {
+                        _id: null,
+                        colors: { $addToSet: "$variants.color" },
+                    },
+                },
+            ]),
+        ]);
+
+        // Tạo khoảng giá động dựa trên min/max
+        const minPrice = priceData[0].minPrice;
+        const maxPrice = priceData[0].maxPrice;
+        const step = (maxPrice - minPrice) / 6; // Chia thành 6 khoảng
+
+        const priceRanges = [];
+        for (let i = 0; i < 6; i++) {
+            priceRanges.push({
+                min: Math.round(minPrice + step * i),
+                max: Math.round(minPrice + step * (i + 1)),
+            });
+        }
+
+        // Thêm khoảng cuối
+        priceRanges.push({
+            min: Math.round(minPrice + step * 6),
+            max: maxPrice,
+        });
+
+        return res.status(200).json({
+            success: true,
+            data: {
+                priceRanges,
+                categories,
+                ratings: [
+                    { value: 5, label: "5 sao" },
+                    { value: 4, label: "4 sao trở lên" },
+                    { value: 3, label: "3 sao trở lên" },
+                    { value: 2, label: "2 sao trở lên" },
+                    { value: 1, label: "1 sao trở lên" },
+                ],
+                colors: colors[0].colors,
+            },
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: error.message,
+            data: [],
+        });
+    }
+};
+
+export const getProductPromotion = async (req, res) => {
+    try {
+        const { page = 1, pageSize = 12 } = req.query;
+        const { priceRange, colors, rating, categories } = req.query;
+        const now = new Date();
+
+        const activePromotions = await Promotion.find({
+            status: "ACTIVE",
+            startDate: { $lte: now },
+            endDate: { $gt: now },
+        });
+
+        const promotedProductIds = [
+            ...new Set([
+                ...activePromotions.flatMap((p) => p.applicableProducts),
+                ...(await Product.find({
+                    category: {
+                        $in: activePromotions.flatMap((p) => p.applicableCategories),
+                    },
+                }).distinct("_id")),
+            ]),
+        ];
+
+        let filter = {
+            _id: { $in: promotedProductIds },
+        };
+
+        if (categories?.length) {
+            filter.category = { $in: categories.split(",") };
+        }
+
+        if (priceRange) {
+            const [min, max] = priceRange.split(",");
+            filter.price = {};
+            if (min) filter.price.$gte = Number(min);
+            if (max) filter.price.$lte = Number(max);
+        }
+
+        if (colors?.length) {
+            filter["variants.color"] = { $in: colors.split(",") };
+        }
+
+        let productRatings = [];
+        if (rating) {
+            productRatings = await Review.aggregate([
+                {
+                    $match: {
+                        display: true
+                    }
+                },
+                {
+                    $group: {
+                        _id: "$product",
+                        avgRating: { $avg: "$rate" },
+                        totalReviews: { $sum: 1 }
+                    }
+                },
+                {
+                    $match: {
+                        avgRating: { $gte: Number(rating) }
+                    }
+                }
+            ]);
+
+            filter._id = {
+                $in: productRatings.map(r => r._id),
+                $in: promotedProductIds
+            };
+        }
+
+        const [total, products] = await Promise.all([
+            Product.countDocuments(filter),
+            Product.find(filter)
+                .skip((Number(page) - 1) * Number(pageSize))
+                .limit(Number(pageSize))
+                .populate("category", "name slug")
+                .lean(),
+        ]);
+
+        const productIds = products.map(product => product._id);
+        const reviews = await Review.aggregate([
+            {
+                $match: {
+                    product: { $in: productIds },
+                    display: true
+                }
+            },
+            {
+                $group: {
+                    _id: "$product",
+                    averageRating: { $avg: "$rate" },
+                    totalReviews: { $sum: 1 }
+                }
+            },
+            {
+                $project: {
+                    averageRating: { $round: ["$averageRating", 1] },
+                    totalReviews: 1
+                }
+            }
+        ]);
+
+        const reviewsMap = reviews.reduce((acc, review) => {
+            acc[review._id.toString()] = {
+                averageRating: review.averageRating,
+                totalReviews: review.totalReviews
+            };
+            return acc;
+        }, {});
+
+        const enrichedProducts = await Promise.all(
+            products.map(async (product) => {
+                const productPromotions = activePromotions.filter(
+                    (p) =>
+                        p.applicableProducts.includes(product._id) ||
+                        p.applicableCategories.includes(product.category._id)
+                );
+
+                let bestDiscount = null;
+                let bestPrice = product.price;
+
+                productPromotions.forEach((promotion) => {
+                    let discountedPrice = product.price;
+                    if (promotion.type === "PERCENTAGE") {
+                        discountedPrice = product.price * (1 - promotion.value / 100);
+                    } else if (promotion.type === "FIXED_AMOUNT") {
+                        discountedPrice = product.price - promotion.value;
+                    }
+
+                    if (promotion.maxDiscountAmount) {
+                        const discount = product.price - discountedPrice;
+                        if (discount > promotion.maxDiscountAmount) {
+                            discountedPrice = product.price - promotion.maxDiscountAmount;
+                        }
+                    }
+
+                    discountedPrice = Math.max(0, Math.round(discountedPrice));
+
+                    if (discountedPrice < bestPrice) {
+                        bestPrice = discountedPrice;
+                        bestDiscount = {
+                            finalPrice: discountedPrice,
+                            promotionInfo: {
+                                id: promotion._id,
+                                name: promotion.name,
+                                type: promotion.type,
+                                value: promotion.value,
+                                banner: promotion.banner,
+                            },
+                        };
+                    }
+                });
+
+                const reviewData = reviewsMap[product._id.toString()] || {
+                    averageRating: 0,
+                    totalReviews: 0
+                };
+
+                return {
+                    ...product,
+                    isPromotion: true,
+                    promotion: bestDiscount,
+                    averageRating: reviewData.averageRating || 0,
+                    totalReviews: reviewData.totalReviews || 0
+                };
+            })
+        );
+
+        return res.status(200).json({
+            success: true,
+            data: {
+                products: enrichedProducts,
+                pagination: {
+                    page: Number(page),
+                    totalPage: Math.ceil(total / Number(pageSize)),
+                    totalItems: total,
+                    pageSize: Number(pageSize),
+                },
+            },
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
             error: error.message,
         });
     }
