@@ -172,6 +172,88 @@ export const removeProduct = async (req, res) => {
     }
 };
 
+export const getProductHome = async (req, res) => {
+    try {
+        const { categories } = req.query;
+
+        if (!categories || typeof categories !== "string")
+            throw new Error("Không tìm thấy sản phẩm");
+
+        const categorySlugs = categories
+            .split(",")
+            .filter((id) => id.trim() !== "");
+        if (categorySlugs.length === 0) throw new Error("Không tìm thấy sản phẩm");
+
+        const productsByCategory = await Promise.all(
+            categorySlugs.map(async (slug) => {
+                const category = await Category.findOne({ slug }).lean();
+                const products = await Product.find({ category: category._id })
+                    .limit(8)
+                    .populate("category")
+                    .lean();
+
+                const productIds = products.map(product => product._id);
+                const reviews = await Review.aggregate([
+                    {
+                        $match: {
+                            product: { $in: productIds },
+                            display: true
+                        }
+                    },
+                    {
+                        $group: {
+                            _id: "$product",
+                            averageRating: { $avg: "$rate" },
+                            totalReviews: { $sum: 1 }
+                        }
+                    }
+                ]);
+
+                const reviewsMap = reviews.reduce((acc, review) => {
+                    acc[review._id.toString()] = {
+                        averageRating: parseFloat(review.averageRating.toFixed(1)),
+                        totalReviews: review.totalReviews
+                    };
+                    return acc;
+                }, {});
+
+                const enrichedProducts = await Promise.all(
+                    products.map(async (product) => {
+                        const promotionData = await enrichProductWithPromotion(product);
+                        const reviewData = reviewsMap[product._id.toString()] || {
+                            averageRating: 0,
+                            totalReviews: 0
+                        };
+
+                        return {
+                            ...promotionData,
+                            averageRating: reviewData.averageRating || 0,
+                            totalReviews: reviewData.totalReviews || 0
+                        };
+                    })
+                );
+
+                return {
+                    category,
+                    products: enrichedProducts,
+                };
+            })
+        );
+
+        return res.status(200).json({
+            success: true,
+            data: productsByCategory,
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            data: [],
+            error: error.message,
+        });
+    }
+};
+
 export const getAllProduct = async (req, res) => {
     try {
         const { page, pageSize, search } = req.query;

@@ -1,6 +1,7 @@
 import express from 'express';
 import { connectDB } from './configs/connection.js';
 import adminRoutes from './routes/admin.js'
+import customerRouter from "./routes/customer.js";
 import cors from "cors";
 
 const app = express();
@@ -15,6 +16,7 @@ app.use(
 
 app.use(express.json());
 
+app.use("/api/v1", customerRouter);
 app.use('/api/v1/admin', adminRoutes);
 
 app.listen(port, async () => {

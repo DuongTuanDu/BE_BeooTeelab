@@ -4,6 +4,7 @@ import dotenv from "dotenv";
 import Admin from "../models/admin.model.js";
 import User from "../models/user.model.js";
 import Otp from "../models/otp.model.js";
+import { generateOTP } from "../ultis/generateOTP.js";
 import { sendEmail } from "../configs/mail.js";
 dotenv.config();
 
@@ -12,6 +13,14 @@ const generateTokenAdmin = (admin) => {
         { id: admin._id, username: admin.email, role: admin.role },
         process.env.JWT_SECRET_KEY_ADMIN,
         { expiresIn: process.env.JWT_EXPIRES_IN_ADMIN }
+    );
+};
+
+const generateToken = (user) => {
+    return jwt.sign(
+        { id: user._id, email: user.email },
+        process.env.JWT_SECRET_KEY,
+        { expiresIn: process.env.JWT_EXPIRES_IN }
     );
 };
 
@@ -111,6 +120,20 @@ export const registerCustomer = async (req, res) => {
             message: "Lỗi server: " + error.message,
         });
     }
+};
+
+const handleLoginResponse = (user, token) => {
+    return {
+        success: true,
+        accessToken: token,
+        user: {
+            id: user._id,
+            name: user.name,
+            email: user.email,
+            phone: user.phone,
+            avatar: user.avatar,
+        },
+    };
 };
 
 export const loginCustomer = async (req, res) => {
@@ -215,6 +238,56 @@ export const verifyOtp = async (req, res) => {
         });
     } catch (error) {
         res.status(500).json({
+            success: false,
+            message: "Lỗi server: " + error.message,
+        });
+    }
+};
+
+export const getAccountCustomer = async (req, res) => {
+    try {
+        const userDetails = await User.findById(req.user._id).select(
+            "-password -__v"
+        );
+        if (!userDetails) {
+            return res.status(404).json({
+                success: false,
+                message: "Vui lòng đăng nhập",
+            });
+        }
+        return res.status(200).json({
+            success: true,
+            data: userDetails,
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            data: {},
+            message: "Lỗi server: " + error.message,
+        });
+    }
+};
+
+export const resetPassword = async (req, res) => {
+    try {
+        const { email, password } = req.body;
+        const user = await User.findOne({
+            email,
+        });
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: "Thông tin người dùng không tồn tại",
+            });
+        }
+        user.password = password;
+        await user.save();
+        return res.status(200).json({
+            success: true,
+            message: "Đặt lại mật khẩu thành công",
+        });
+    } catch (error) {
+        return res.status(500).json({
             success: false,
             message: "Lỗi server: " + error.message,
         });
