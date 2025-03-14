@@ -21,6 +21,7 @@ import {
   getProductSearch,
   getListFromCategory,
   getProductPromotion,
+  getProductDetailBySlug,
 } from "../controllers/product.controller.js";
 import { getAllCategory } from "../controllers/category.controller.js";
 import { authMiddlewareCustomer } from "../middleware/auth.middleware.js";
@@ -39,6 +40,7 @@ router.get("/products-home", getProductHome);
 router.get("/filter-options", getFilterOptions);
 router.get("/products-search", getProductSearch);
 router.get("/products-by-category/:slug", getListFromCategory);
+router.get("/product-detail/:slug", getProductDetailBySlug);
 router.get("/products-by-promotion", getProductPromotion);
 
 router.post("/verify-otp", verifyOtp);

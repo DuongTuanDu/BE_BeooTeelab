@@ -606,6 +606,40 @@ export const getListFromCategory = async (req, res) => {
     }
 };
 
+export const getProductDetailBySlug = async (req, res) => {
+    try {
+        const { slug } = req.params;
+        const product = await Product.findOne({
+            slug,
+        })
+            .populate({ path: "category", select: "name slug" })
+            .lean();
+
+        if (!product) {
+            return res.status(404).json({
+                success: false,
+                message: "Không tìm thấy sản phẩm",
+                data: null,
+            });
+        }
+
+        // Thêm thông tin khuyến mãi cho sản phẩm
+        const enrichedProduct = await enrichProductWithPromotion(product);
+
+        return res.status(200).json({
+            success: true,
+            data: enrichedProduct,
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            data: {},
+            error: error.message,
+        });
+    }
+};
+
 export const getProductPromotion = async (req, res) => {
     try {
         const { page = 1, pageSize = 12 } = req.query;
