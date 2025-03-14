@@ -293,3 +293,35 @@ export const resetPassword = async (req, res) => {
         });
     }
 };
+
+export const updateAccount = async (req, res) => {
+    try {
+        const { name, email, password, avatar } = req.body;
+        const user = await User.findOne({
+            email,
+        });
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: "Thông tin người dùng không tồn tại",
+            });
+        }
+
+        user.name = name || user.name;
+        user.password = password || user.password;
+        user.avatar.url = avatar.url || user.url;
+        user.avatar.publicId = avatar.publicId || user.publicId;
+        await user.save();
+
+        return res.status(200).json({
+            success: true,
+            message: "Cập nhật hồ sơ thành công",
+            data: user,
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: "Lỗi server: " + error.message,
+        });
+    }
+};

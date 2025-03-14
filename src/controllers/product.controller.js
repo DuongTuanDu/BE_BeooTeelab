@@ -312,6 +312,77 @@ export const getAllProduct = async (req, res) => {
     }
 };
 
+export const getProductSearch = async (req, res) => {
+    try {
+        const { search } = req.query;
+        const products = await Product.find({
+            name: {
+                $regex: search,
+                $options: "i",
+            },
+        }).lean();
+
+        const productIds = products.map(product => product._id);
+        const reviews = await Review.aggregate([
+            {
+                $match: {
+                    product: { $in: productIds },
+                    display: true
+                }
+            },
+            {
+                $group: {
+                    _id: "$product",
+                    averageRating: { $avg: "$rate" },
+                    totalReviews: { $sum: 1 }
+                }
+            },
+            {
+                $project: {
+                    averageRating: { $round: ["$averageRating", 1] },
+                    totalReviews: 1
+                }
+            }
+        ]);
+
+        const reviewsMap = reviews.reduce((acc, review) => {
+            acc[review._id.toString()] = {
+                averageRating: review.averageRating,
+                totalReviews: review.totalReviews
+            };
+            return acc;
+        }, {});
+
+        const enrichedProducts = await Promise.all(
+            products.map(async (product) => {
+                const promotionData = await enrichProductWithPromotion(product);
+                const reviewData = reviewsMap[product._id.toString()] || {
+                    averageRating: 0,
+                    totalReviews: 0
+                };
+
+                return {
+                    ...promotionData,
+                    averageRating: reviewData.averageRating || 0,
+                    totalReviews: reviewData.totalReviews || 0
+                };
+            })
+        );
+
+        return res.status(200).json({
+            success: true,
+            data: enrichedProducts,
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            data: [],
+            error: error.message,
+        });
+    }
+};
+
 export const getFilterOptions = async (req, res) => {
     try {
         const [priceData, categories, colors] = await Promise.all([
@@ -393,6 +464,144 @@ export const getFilterOptions = async (req, res) => {
             success: false,
             message: error.message,
             data: [],
+        });
+    }
+};
+
+export const getListFromCategory = async (req, res) => {
+    try {
+        const { page = 1, pageSize = 12 } = req.query;
+        const { priceRange, colors, rating, categories } = req.query;
+        const { slug } = req.params;
+
+        let filter = {};
+
+        // Category filter
+        if (slug) {
+            const category = await Category.findOne({ slug });
+            filter.category = category._id;
+        }
+
+        if (categories?.length) {
+            filter.category = { $in: categories.split(",") };
+        }
+
+        // Price range filter
+        if (priceRange) {
+            const [min, max] = priceRange.split(",");
+            filter.price = {};
+            if (min) filter.price.$gte = Number(min);
+            if (max) filter.price.$lte = Number(max);
+        }
+
+        // Colors filter
+        if (colors?.length) {
+            filter["variants.color"] = { $in: colors.split(",") };
+        }
+
+        // Get product ratings first if rating filter is applied
+        let productsWithRating = [];
+        if (rating) {
+            productsWithRating = await Review.aggregate([
+                {
+                    $match: {
+                        display: true
+                    }
+                },
+                {
+                    $group: {
+                        _id: "$product",
+                        avgRating: { $avg: "$rate" },
+                        totalReviews: { $sum: 1 }
+                    }
+                },
+                {
+                    $match: {
+                        avgRating: { $gte: Number(rating) }
+                    }
+                }
+            ]);
+
+            filter._id = { $in: productsWithRating.map(r => r._id) };
+        }
+
+        // Get products with pagination
+        const [total, products] = await Promise.all([
+            Product.countDocuments(filter),
+            Product.find(filter)
+                .skip((Number(page) - 1) * Number(pageSize))
+                .limit(Number(pageSize))
+                .populate("category")
+                .lean()
+        ]);
+
+        // Get ratings for current page products
+        const productIds = products.map(product => product._id);
+        const reviews = await Review.aggregate([
+            {
+                $match: {
+                    product: { $in: productIds },
+                    display: true
+                }
+            },
+            {
+                $group: {
+                    _id: "$product",
+                    averageRating: { $avg: "$rate" },
+                    totalReviews: { $sum: 1 }
+                }
+            },
+            {
+                $project: {
+                    averageRating: { $round: ["$averageRating", 1] },
+                    totalReviews: 1
+                }
+            }
+        ]);
+
+        // Create reviews map
+        const reviewsMap = reviews.reduce((acc, review) => {
+            acc[review._id.toString()] = {
+                averageRating: review.averageRating,
+                totalReviews: review.totalReviews
+            };
+            return acc;
+        }, {});
+
+        // Enrich products with both promotions and reviews
+        const enrichedProducts = await Promise.all(
+            products.map(async (product) => {
+                const promotionData = await enrichProductWithPromotion(product);
+                const reviewData = reviewsMap[product._id.toString()] || {
+                    averageRating: 0,
+                    totalReviews: 0
+                };
+
+                return {
+                    ...promotionData,
+                    averageRating: reviewData.averageRating || 0,
+                    totalReviews: reviewData.totalReviews || 0
+                };
+            })
+        );
+
+        return res.status(200).json({
+            success: true,
+            data: {
+                products: enrichedProducts,
+                pagination: {
+                    page: Number(page),
+                    totalPage: Math.ceil(total / Number(pageSize)),
+                    totalItems: total,
+                    pageSize: Number(pageSize),
+                },
+            },
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            error: error.message,
         });
     }
 };

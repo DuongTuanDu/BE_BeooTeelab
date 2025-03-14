@@ -5,17 +5,21 @@ import {
   registerCustomer,
   sendOtp,
   verifyOtp,
-  resetPassword
+  resetPassword,
+  updateAccount,
 } from "../controllers/auth.controller.js";
 import { validateMiddleWare } from "../middleware/validate.middleware.js";
 import {
   loginCustomerValidate,
   registerCustomerValidate,
   resetPasswordValidate,
+  updateAccountValidate,
 } from "../validates/auth.validate.js";
 import {
   getProductHome,
   getFilterOptions,
+  getProductSearch,
+  getListFromCategory,
   getProductPromotion,
 } from "../controllers/product.controller.js";
 import { getAllCategory } from "../controllers/category.controller.js";
@@ -33,6 +37,8 @@ router.post(
 
 router.get("/products-home", getProductHome);
 router.get("/filter-options", getFilterOptions);
+router.get("/products-search", getProductSearch);
+router.get("/products-by-category/:slug", getListFromCategory);
 router.get("/products-by-promotion", getProductPromotion);
 
 router.post("/verify-otp", verifyOtp);
@@ -49,6 +55,13 @@ router.put(
   validateMiddleWare,
 );
 router.get("/account", authMiddlewareCustomer, getAccountCustomer);
+router.put(
+  "/account",
+  authMiddlewareCustomer,
+  updateAccountValidate,
+  validateMiddleWare,
+  updateAccount
+);
 router.get("/categories", getAllCategory);
 
 export default router;
