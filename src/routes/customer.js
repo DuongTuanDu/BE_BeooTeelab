@@ -81,6 +81,13 @@ router.post(
   createOrderValidate,
   createOrderCod
 );
+// //mobile:
+// router.post(
+//   "/orders-cod",
+//   authMiddlewareCustomer,
+//   createOrderValidate,
+//   createOrderCod
+// );
 router.post(
   "/order-vnpay",
   authMiddlewareCustomer,

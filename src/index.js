@@ -14,6 +14,14 @@ app.use(
     })
 );
 
+// //mobile
+// app.use(
+//     cors({
+//         origin: [process.env.FRONT_END_URL, "http://localhost:8081"],
+//         credentials: true,
+//     })
+// );
+
 app.use(express.json());
 
 app.use("/api/v1", customerRouter);
