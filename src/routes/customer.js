@@ -35,6 +35,11 @@ import {
 import { getAllCategory } from "../controllers/category.controller.js";
 import { authMiddlewareCustomer } from "../middleware/auth.middleware.js";
 import { createOrderValidate } from "../validates/order.validate.js";
+import { createReviewValidate } from "../validates/review.validate.js";
+import {
+  createReview,
+  getReviewByCustomer,
+} from "../controllers/review.controller.js";
 
 const router = express.Router();
 
@@ -75,19 +80,19 @@ router.put(
   updateAccount
 );
 router.get("/categories", getAllCategory);
-router.post(
-  "/order-cod",
-  authMiddlewareCustomer,
-  createOrderValidate,
-  createOrderCod
-);
-// //mobile:
 // router.post(
-//   "/orders-cod",
+//   "/order-cod",
 //   authMiddlewareCustomer,
 //   createOrderValidate,
 //   createOrderCod
 // );
+//mobile:
+router.post(
+  "/orders-cod",
+  authMiddlewareCustomer,
+  createOrderValidate,
+  createOrderCod
+);
 router.post(
   "/order-vnpay",
   authMiddlewareCustomer,
@@ -104,5 +109,14 @@ router.post("/order-vnpay-return", authMiddlewareCustomer, orderVnpayReturn);
 router.get("/order-stripe-return", authMiddlewareCustomer, orderStripeReturn);
 router.put("/order-status/:id", authMiddlewareCustomer, updateOrder);
 router.get("/orders", authMiddlewareCustomer, getOrderByCustomer);
+
+router.post(
+  "/review",
+  authMiddlewareCustomer,
+  createReviewValidate,
+  validateMiddleWare,
+  createReview
+);
+router.get("/reviews/:slug", getReviewByCustomer);
 
 export default router;

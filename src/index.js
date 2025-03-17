@@ -7,20 +7,20 @@ import cors from "cors";
 const app = express();
 const port = process.env.PORT || 8080;
 
-app.use(
-    cors({
-        origin: process.env.FRONT_END_URL,
-        credentials: true,
-    })
-);
-
-// //mobile
 // app.use(
 //     cors({
-//         origin: [process.env.FRONT_END_URL, "http://localhost:8081"],
+//         origin: process.env.FRONT_END_URL,
 //         credentials: true,
 //     })
 // );
+
+//mobile
+app.use(
+    cors({
+        origin: [process.env.FRONT_END_URL, "http://localhost:8081"],
+        credentials: true,
+    })
+);
 
 app.use(express.json());
 
