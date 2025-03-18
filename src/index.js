@@ -3,6 +3,7 @@ import { connectDB } from './configs/connection.js';
 import adminRoutes from './routes/admin.js'
 import customerRouter from "./routes/customer.js";
 import cors from "cors";
+import { handleWebhookOrder } from "./controllers/order.controller.js";
 
 const app = express();
 const port = process.env.PORT || 8080;
@@ -20,6 +21,12 @@ app.use(
         origin: [process.env.FRONT_END_URL, "http://localhost:8081"],
         credentials: true,
     })
+);
+
+app.post(
+    "/webhook-stripe",
+    express.raw({ type: "application/json" }),
+    handleWebhookOrder
 );
 
 app.use(express.json());
