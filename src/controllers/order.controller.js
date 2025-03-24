@@ -3,6 +3,7 @@ import { ignoreLogger, ProductCode, VNPay, VnpLocale } from "vnpay";
 import Stripe from "stripe";
 import OrderSession from "../models/order-session.model.js";
 import { updatePromotionUsage } from "./promotion.controller.js";
+import { io } from "../socket/index.js";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
@@ -133,7 +134,7 @@ export const createOrderStripe = async (req, res) => {
         // Create OrderSession first
         const orderSession = await OrderSession.create(orderSessionData);
 
-        const lineItems = orderSessionData.products.map((item) => ({
+        const lineItems = products.map((item) => ({
             price_data: {
                 currency: "vnd",
                 product_data: {
@@ -523,5 +524,72 @@ export const getOrderDetails = async (req, res) => {
             message: "Internal Server Error",
             error: error.message,
         });
+    }
+};
+
+export const createOrderSession = async (req, res) => {
+    try {
+        const user = req.user;
+        const orderSessionData = {
+            user: user._id,
+            name: req.body.name,
+            products: req.body.products,
+            phone: req.body.phone,
+            address: req.body.address,
+            province: req.body.province,
+            district: req.body.district,
+            ward: req.body.ward,
+            paymentMethod: req.body.paymentMethod,
+            totalAmount: req.body.totalAmount,
+            note: req.body.note || "KHÔNG CÓ",
+        };
+        const orderSession = await OrderSession.create(orderSessionData);
+        if (!orderSession) {
+            return res
+                .status(500)
+                .json({ success: false, message: "Có lỗi xảy ra khi đặt hàng" });
+        }
+        return res.status(200).json({
+            success: true,
+            data: orderSession._id,
+        });
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({
+            success: false,
+            message: "Có lỗi xảy ra khi đặt hàng",
+            error: error.message,
+        });
+    }
+};
+
+export const handleSepayWebhook = async (req, res) => {
+    try {
+        const data = req.body;
+        if (!data) return;
+
+        const orderSessionId = data.content.split(" ")[0];
+        console.log({ data });
+        console.log({ orderSessionId });
+
+        if (!orderSessionId) return;
+
+        const orderSession = await OrderSession.findOne(
+            { _id: orderSessionId },
+            { projection: { __v: 0, createdAt: 0, updatedAt: 0 } }
+        ).lean();
+
+        const orderData = { ...orderSession };
+        delete orderData._id;
+
+        const newOrder = await Order.create(orderData);
+        await OrderSession.deleteOne({ _id: orderSessionId });
+
+        console.log({ newOrder });
+
+        io.emit("paymentSuccess", orderSessionId);
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json({ error: error.message });
     }
 };

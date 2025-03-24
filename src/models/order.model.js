@@ -94,7 +94,7 @@ export const OrderSchema = new mongoose.Schema(
         paymentMethod: {
             type: String,
             required: true,
-            enum: ["COD", "STRIPE", "VNPAY"],
+            enum: ["COD", "STRIPE", "VNPAY", "SEPAY"],
         },
         note: {
             type: String,

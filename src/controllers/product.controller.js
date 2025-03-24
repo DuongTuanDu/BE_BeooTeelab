@@ -828,3 +828,99 @@ export const getProductPromotion = async (req, res) => {
         });
     }
 };
+
+export const getProductPageSearch = async (req, res) => {
+    try {
+        const page = parseInt(req.query.page) || 1;
+        const pageSize = parseInt(req.query.pageSize) || 12;
+        const { search } = req.query;
+        const skip = (page - 1) * pageSize;
+        let filter = {};
+
+        if (search) {
+            filter = Object.assign(filter, {
+                name: {
+                    $regex: search,
+                    $options: "i",
+                },
+            });
+        }
+
+        const [total, products] = await Promise.all([
+            Product.countDocuments(filter),
+            Product.find(filter)
+                .populate({ path: "category", select: "name" })
+                .skip(skip)
+                .limit(pageSize)
+                .lean()
+                .exec(),
+        ]);
+
+        const productIds = products.map(product => product._id);
+        const reviews = await Review.aggregate([
+            {
+                $match: {
+                    product: { $in: productIds },
+                    display: true
+                }
+            },
+            {
+                $group: {
+                    _id: "$product",
+                    averageRating: { $avg: "$rate" },
+                    totalReviews: { $sum: 1 }
+                }
+            },
+            {
+                $project: {
+                    averageRating: { $round: ["$averageRating", 1] },
+                    totalReviews: 1
+                }
+            }
+        ]);
+
+        const reviewsMap = reviews.reduce((acc, review) => {
+            acc[review._id.toString()] = {
+                averageRating: review.averageRating,
+                totalReviews: review.totalReviews
+            };
+            return acc;
+        }, {});
+
+        const enrichedProducts = await Promise.all(
+            products.map(async (product) => {
+                const promotionData = await enrichProductWithPromotion(product);
+                const reviewData = reviewsMap[product._id.toString()] || {
+                    averageRating: 0,
+                    totalReviews: 0
+                };
+
+                return {
+                    ...promotionData,
+                    reviews: {
+                        average: reviewData.averageRating,
+                        total: reviewData.totalReviews
+                    }
+                };
+            })
+        );
+
+        return res.status(200).json({
+            success: true,
+            pagination: {
+                page: page,
+                totalPage: Math.ceil(total / pageSize),
+                pageSize: pageSize,
+                totalItems: total,
+            },
+            data: enrichedProducts,
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            data: [],
+            error: error.message,
+        });
+    }
+};

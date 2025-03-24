@@ -4,8 +4,8 @@ import adminRoutes from './routes/admin.js'
 import customerRouter from "./routes/customer.js";
 import cors from "cors";
 import { handleWebhookOrder } from "./controllers/order.controller.js";
+import { app, server } from "./socket/index.js";
 
-const app = express();
 const port = process.env.PORT || 8080;
 
 // app.use(
@@ -34,7 +34,7 @@ app.use(express.json());
 app.use("/api/v1", customerRouter);
 app.use('/api/v1/admin', adminRoutes);
 
-app.listen(port, async () => {
-    await connectDB()
-    console.log(`Example app listening on port ${port}`);
-});
+// app.listen(port, async () => {
+//     await connectDB()
+//     console.log(`Example app listening on port ${port}`);
+// });
