@@ -370,7 +370,7 @@ export const getOrderByCustomer = async (req, res) => {
 
         let statusCondition;
         if (status === "pending") {
-            statusCondition = { $in: ["pending", "processing"] };
+            statusCondition = "pending";
         } else {
             statusCondition = status;
         }
